@@ -35,11 +35,42 @@ export default function MapBoard() {
   const autoAdvanceTimer = useRef(null);
 
   // LOAD DATA
-  useEffect(() => {
-    fetch('/data/zones.json?v=2').then(r => r.json()).then(setZones).catch(e => console.error("Missing zones.json", e));
-    fetch('/data/intersections.json?v=1').then(r => r.json()).then(setIntersections).catch(e => console.error("Missing intersections.json", e));
-    fetch('/data/blocks.json?v=2').then(r => r.json()).then(setBlocks).catch(e => console.error("Missing blocks.json", e));
-    fetch('/data/addresses.json?v=2').then(r => r.json()).then(setAddresses).catch(e => console.error("Missing addresses.json", e));
+ useEffect(() => {
+    // We use import.meta.env.BASE_URL to automatically add '/coquitlam-fire-trainer/' 
+    // when deployed, but keep it as '/' when on localhost.
+    const baseUrl = import.meta.env.BASE_URL;
+
+    fetch(`${baseUrl}data/zones.json?v=2`)
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP 404");
+        return r.json();
+      })
+      .then(setZones)
+      .catch(e => console.error("Missing zones.json", e));
+
+    fetch(`${baseUrl}data/intersections.json?v=1`)
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP 404");
+        return r.json();
+      })
+      .then(setIntersections)
+      .catch(e => console.error("Missing intersections.json", e));
+
+    fetch(`${baseUrl}data/blocks.json?v=2`)
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP 404");
+        return r.json();
+      })
+      .then(setBlocks)
+      .catch(e => console.error("Missing blocks.json", e));
+
+    fetch(`${baseUrl}data/addresses.json?v=2`)
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP 404");
+        return r.json();
+      })
+      .then(setAddresses)
+      .catch(e => console.error("Missing addresses.json", e));
   }, []);
 
   // ⌨️ KEYBOARD LISTENER (Enter = Next)
