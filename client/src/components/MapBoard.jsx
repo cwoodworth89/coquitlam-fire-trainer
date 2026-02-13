@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, Polygon, CircleMarker, Polyline, Tooltip } from 'react-leaflet';
+import React, { useEffect, useState, useRef } from 'react'; // Added useRef
+import { MapContainer, Polygon, CircleMarker, Polyline, Tooltip, Pane } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import L from 'leaflet';
 
 // Import from your other components
-// Ensure these files exist and are in the same folder, or adjust path
-import { BASE_LAYERS, MODE_DEFAULTS, BaseMap, CoquitlamOverlays, StationsLayer } from './MapLayers';
+import { BASE_LAYERS, MODE_DEFAULTS, BaseMap, CoquitlamOverlays, StationsLayer, FireZonesLayer } from './MapLayers';
 import { MapClickEvents, SmartZoom, ZoomToFeedback } from './MapActions';
 import { Header, Sidebar, UNIT_COLORS } from './GameHUD';
 
-// ⚠️ THIS IS THE CRITICAL PART: "export default"
 export default function MapBoard() {
   const [map, setMap] = useState(null);
 
@@ -33,7 +31,10 @@ export default function MapBoard() {
   const [distanceOff, setDistanceOff] = useState(0); 
   const [clickedBlockData, setClickedBlockData] = useState(null);
 
-  // LOAD DATA (Ensure these files exist in your /public/data/ folder)
+  // ⏱️ TIMER REF (Prevents double-skipping if you hit Enter while waiting)
+  const autoAdvanceTimer = useRef(null);
+
+  // LOAD DATA
   useEffect(() => {
     fetch('/data/zones.json?v=2').then(r => r.json()).then(setZones).catch(e => console.error("Missing zones.json", e));
     fetch('/data/intersections.json?v=1').then(r => r.json()).then(setIntersections).catch(e => console.error("Missing intersections.json", e));
@@ -41,21 +42,29 @@ export default function MapBoard() {
     fetch('/data/addresses.json?v=2').then(r => r.json()).then(setAddresses).catch(e => console.error("Missing addresses.json", e));
   }, []);
 
+  // ⌨️ KEYBOARD LISTENER (Enter = Next)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+        // If Enter is pressed AND we are showing feedback (waiting for next)
+        if (e.key === "Enter" && feedback && gameMode !== "EXPLORE") {
+            goToNext();
+        }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [feedback, gameMode, zones, intersections, blocks, addresses]);
+
   // --- CONTROLLER LOGIC ---
   const startMode = (mode) => {
+      clearTimeout(autoAdvanceTimer.current); // Clear any pending jumps
       setGameMode(mode);
       setScore(0);
       setFeedback(null);
       setUserGuess(null);
       setMapStyle(MODE_DEFAULTS[mode]); 
       
-      if (mode === "QUIZ_ADDRESSES") {
-          setShowLabels(true); 
-      } else if (mode === "QUIZ_INTERSECTIONS") {
-          setShowLabels(false); 
-      } else {
-          setShowLabels(true); 
-      }
+      // Only show labels automatically for Address Mode
+      setShowLabels(mode === "QUIZ_ADDRESSES");
       
       if (mode === "QUIZ_ZONES") nextQuestion(zones);
       if (mode === "QUIZ_INTERSECTIONS") nextQuestion(intersections);
@@ -63,7 +72,16 @@ export default function MapBoard() {
       if (mode === "QUIZ_ADDRESSES") nextQuestion(addresses);
   };
 
+  // Helper to route to the correct "Next" function
+  const goToNext = () => {
+      if(gameMode === "QUIZ_ZONES") nextQuestion(zones);
+      if(gameMode === "QUIZ_INTERSECTIONS") nextQuestion(intersections);
+      if(gameMode === "QUIZ_BLOCKS") nextBlockQuestion();
+      if(gameMode === "QUIZ_ADDRESSES") nextQuestion(addresses);
+  };
+
   const nextQuestion = (dataset) => {
+      clearTimeout(autoAdvanceTimer.current); // Stop timer if manual click happened
       if (!dataset || dataset.length === 0) return;
       setCurrentQuestion(dataset[Math.floor(Math.random() * dataset.length)]);
       setFeedback(null);
@@ -71,6 +89,7 @@ export default function MapBoard() {
   };
 
   const nextBlockQuestion = () => {
+    clearTimeout(autoAdvanceTimer.current);
     if (!blocks || blocks.length === 0) return;
     const valid = blocks.filter(b => b.block > 0);
     setCurrentQuestion(valid[Math.floor(Math.random() * valid.length)]);
@@ -80,7 +99,12 @@ export default function MapBoard() {
 
   // --- HANDLERS ---
   const handleZoneGuess = (unitId) => {
-    if (unitId === currentQuestion.unit_id) { setFeedback("CORRECT"); setScore(s => s + 1); setTimeout(() => nextQuestion(zones), 1000); } 
+    if (unitId === currentQuestion.unit_id) { 
+        setFeedback("CORRECT"); 
+        setScore(s => s + 1); 
+        // Auto-advance
+        autoAdvanceTimer.current = setTimeout(() => nextQuestion(zones), 1000); 
+    } 
     else { setFeedback("WRONG"); }
   };
 
@@ -98,14 +122,30 @@ export default function MapBoard() {
     setDistanceOff(distMeters);
     const points = Math.max(0, 500 - distMeters);
     setScore(s => s + points);
-    setFeedback(distMeters === 0 ? "PERFECT" : points > 0 ? "OKAY" : "MISS");
+    
+    const result = distMeters === 0 ? "PERFECT" : points > 0 ? "OKAY" : "MISS";
+    setFeedback(result);
+
+    // 🔽 NEW: Auto-advance for Intersection/Address modes too
+    if (result === "PERFECT") {
+        autoAdvanceTimer.current = setTimeout(() => {
+            if (gameMode === "QUIZ_INTERSECTIONS") nextQuestion(intersections);
+            if (gameMode === "QUIZ_ADDRESSES") nextQuestion(addresses);
+        }, 1500);
+    }
   };
 
   const handleBlockClick = (blockData) => {
     if (gameMode !== "QUIZ_BLOCKS" || feedback) return;
     setClickedBlockData(blockData);
     const diff = Math.abs(currentQuestion.block - blockData.block);
-    if (diff === 0) { setFeedback("PERFECT"); setScore(s => s + 1); setTimeout(nextBlockQuestion, 1500); }
+    
+    if (diff === 0) { 
+        setFeedback("PERFECT"); 
+        setScore(s => s + 1); 
+        // Auto-advance
+        autoAdvanceTimer.current = setTimeout(nextBlockQuestion, 1500); 
+    }
     else { setFeedback("WRONG"); setDistanceOff(diff); }
   };
 
@@ -120,14 +160,11 @@ export default function MapBoard() {
   };
 
   const getZoneStyle = (zone) => {
-    if (gameMode === "EXPLORE") {
-        return { color: UNIT_COLORS[zone.unit_id], fillOpacity: 0.4, weight: 1 };
-    }
     if (gameMode === "QUIZ_ZONES") {
         if (currentQuestion && zone.zone_id === currentQuestion.zone_id) {
-            return { color: "#06b6d4", fillOpacity: 0.6, weight: 4 }; 
+            return { color: "#06b6d4", fillOpacity: 0.5, weight: 0 }; 
         }
-        return { color: "#475569", fillOpacity: 0.1, weight: 1 }; 
+        return { color: "transparent", fillOpacity: 0, weight: 0 }; 
     }
     return { color: "#475569", fillOpacity: 0.05, weight: 1 };
   };
@@ -147,30 +184,44 @@ export default function MapBoard() {
             style={{ height: "100%", width: "100%" }} 
             className="bg-slate-900" zoomControl={false} maxZoom={22} ref={setMap}
         >
-          {/* LAYERS */}
+          {/* 1. BASE MAP (z-index 200) */}
           <BaseMap style={mapStyle} />
           
           <CoquitlamOverlays visible={showLabels} />
           
-          <StationsLayer />
+          {/* 2. DEFINE CUSTOM PANES */}
+          <Pane name="underlayPane" style={{ zIndex: 390 }} />
+          <Pane name="labelsPane" style={{ zIndex: 410 }} />
+          
+          {/* 3. LAYERS ASSIGNED TO PANES */}
+          
+          {/* "Top Bun" - The Text Labels */}
+          <FireZonesLayer 
+              visible={gameMode === "EXPLORE" || gameMode === "QUIZ_ZONES"} 
+              pane="labelsPane" 
+          />
+          
+          {/* "Bottom Bun" - The Highlight */}
+          {gameMode === "QUIZ_ZONES" && zones.map((zone) => (
+            <Polygon 
+                key={zone.zone_id} 
+                positions={zone.geometry.coordinates[0].map(c => [c[1], c[0]])} 
+                pathOptions={getZoneStyle(zone)} 
+                pane="underlayPane" 
+            />
+          ))}
+
+          {/* HIDE STATIONS IN QUIZ MODE */}
+          {gameMode !== "QUIZ_ZONES" && <StationsLayer />}
+          
           <MapClickEvents onMapClick={handleMapClick} />
           
-          {/* HELPERS */}
           {!feedback && currentQuestion && (
              <SmartZoom target={currentQuestion} mode={gameMode} allBlocks={blocks} allZones={zones} />
           )}
           {feedback === "WRONG" && gameMode === "QUIZ_BLOCKS" && clickedBlockData && (
              <ZoomToFeedback guessBlock={clickedBlockData} targetBlock={blocks.find(b => b.block === currentQuestion.block && b.street === currentQuestion.street)} mode={gameMode} />
           )}
-
-          {/* GAME VISUALS: ZONES */}
-          {(gameMode === "EXPLORE" || gameMode === "QUIZ_ZONES") && zones.map((zone) => (
-            <Polygon 
-                key={zone.zone_id} 
-                positions={zone.geometry.coordinates[0].map(c => [c[1], c[0]])} 
-                pathOptions={getZoneStyle(zone)} 
-            />
-          ))}
 
           {/* GAME VISUALS: BLOCKS */}
           {gameMode === "QUIZ_BLOCKS" && currentQuestion && blocks && blocks.length > 0 && 
@@ -203,12 +254,7 @@ export default function MapBoard() {
         <Sidebar 
             gameMode={gameMode} currentQuestion={currentQuestion} feedback={feedback} 
             distanceOff={distanceOff} clickedBlockData={clickedBlockData} map={map}
-            onNext={() => {
-                if(gameMode === "QUIZ_ZONES") nextQuestion(zones);
-                if(gameMode === "QUIZ_INTERSECTIONS") nextQuestion(intersections);
-                if(gameMode === "QUIZ_BLOCKS") nextBlockQuestion();
-                if(gameMode === "QUIZ_ADDRESSES") nextQuestion(addresses);
-            }} 
+            onNext={goToNext} 
             onZoneGuess={handleZoneGuess}
         />
 

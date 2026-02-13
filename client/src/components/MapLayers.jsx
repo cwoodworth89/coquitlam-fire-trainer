@@ -31,50 +31,58 @@ export const MODE_DEFAULTS = {
 };
 
 // 🚒 STATIONS
+// Coordinates verified against official Coquitlam Fire Hall addresses
 const STATIONS = [
-    { id: "1", name: "Hall 1", coords: [49.2936, -122.7933] },
-    { id: "2", name: "Hall 2", coords: [49.2565, -122.8277] },
-    { id: "3", name: "Hall 3", coords: [49.2523, -122.8592] },
-    { id: "4", name: "Hall 4", coords: [49.2987, -122.7570] }
+    { id: "1", name: "Hall 1", coords: [49.291329039026046, -122.79161362016414] },
+    { id: "2", name: "Hall 2", coords: [49.26223510671969, -122.81725512755891] },
+    { id: "3", name: "Hall 3", coords: [49.24804277980424, -122.86566519365569] },
+    { id: "4", name: "Hall 4", coords: [49.2952132946437, -122.7425391041921] }
 ];
 
+// 🎨 TUNED ICON (Fixed anchor centering)
 const stationIcon = L.divIcon({
   className: 'custom-icon',
-  html: `<div style="background-color: white; border: 2px solid #ef4444; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 18px;">🚒</div>`,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
+  html: `<div style="
+    background-color: white; 
+    border: 2px solid #ef4444; 
+    border-radius: 50%; 
+    width: 30px; 
+    height: 30px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+    font-size: 18px;
+    box-sizing: content-box; 
+  ">🚒</div>`,
+  iconSize: [34, 34],   // Width (30) + Border (4)
+  iconAnchor: [17, 17], // Center (17)
+  popupAnchor: [0, -20]
 });
 
-// 🛠️ FIXED BASEMAP COMPONENT
+// 🛠️ BASEMAP COMPONENT
 export function BaseMap({ style }) {
     const map = useMap();
     const layerRef = useRef(null);
 
     useEffect(() => {
-        // CLEANUP FUNCTION
         const cleanup = () => {
             if (layerRef.current) {
                 try {
-                    // Safe removal check
                     if (map.hasLayer(layerRef.current)) {
                         map.removeLayer(layerRef.current);
                     }
                 } catch (error) {
-                    // Suppress the Esri/React Strict Mode race condition error
                     console.warn("Suppressed Esri layer cleanup error:", error);
                 }
                 layerRef.current = null;
             }
         };
 
-        // 1. Run cleanup first to remove old layers
         cleanup();
 
-        // 2. Initialize new layer
         try {
             const config = BASE_LAYERS[style];
-            
-            // Note: We use vectorBasemapLayer for both custom IDs and Enums
             const layer = vectorBasemapLayer(config.id, {
                 apikey: API_KEY,
                 token: API_KEY
@@ -88,13 +96,13 @@ export function BaseMap({ style }) {
             console.error("Esri Basemap Init Error:", err);
         }
 
-        // 3. Return cleanup for unmount
         return cleanup;
     }, [map, style]);
 
     return null; 
 }
 
+// 🏗️ COQUITLAM ROADS/PARCELS
 export function CoquitlamOverlays({ visible }) {
     const map = useMap();
     useEffect(() => {
@@ -111,6 +119,29 @@ export function CoquitlamOverlays({ visible }) {
           map.removeLayer(overlayLayer);
       };
     }, [map, visible]);
+    
+    return null;
+}
+
+// 🚒 NEW: FIRE ZONES (Official GIS Layer)
+// Updated to accept a 'pane' prop
+export function FireZonesLayer({ visible, pane }) {
+    const map = useMap();
+    useEffect(() => {
+      if (!visible) return;
+      
+      const layer = dynamicMapLayer({
+          url: "https://geodata.coquitlam.ca/arcgis/rest/services/DynamicServices/Planning/MapServer",
+          layers: [6], 
+          opacity: 0.8,
+          f: 'image',
+          pane: pane || 'overlayPane' // 👈 THIS IS THE FIX
+      }).addTo(map);
+
+      return () => { 
+          map.removeLayer(layer);
+      };
+    }, [map, visible, pane]); // Add pane to dependencies
     
     return null;
 }
