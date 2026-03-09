@@ -3,22 +3,20 @@ import { Marker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 // Import Esri libraries
-import { vectorBasemapLayer } from 'esri-leaflet-vector';
 import { dynamicMapLayer } from 'esri-leaflet';
 
-// 🔑 API KEY
-const API_KEY = "AAPTxy8BH1VEsoebNVZXo8HurAtUqBEibvXQ49H44V9cLFsdZhqOdxezMGzrZ2QiYfHHlb9zkcacxXvSeuIsHOvLLbUB_MFqDvT-evdF8PKDKmuIayqymwswn09IzC3tH_aL0s9G-CZSWBAaOS2tOZdHdLNA0L34rW0z4wZBQVpKrYKWKYNr4AltUWCw28T5qZB2E7so0ek3jRLAEKbqPgXmr844piY3S6xgI-2oBoj9rBM19tqk-YakklhymszucwtRAT1_ZmlRyAzl";
-
-// 🗺️ CONFIGURATION
+// 🗺️ BASE LAYERS (Free, public tile providers)
 export const BASE_LAYERS = {
-    GREY: {
-        type: "esri-custom", 
-        id: "38786e137dea4eb5a240ef85cb1390a2" 
-    },
-    DARK: {
-        type: "esri-enum",   
-        id: "arcgis/dark-gray" 
-    }
+  GREY: {
+    type: 'tile',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors',
+  },
+  DARK: {
+    type: 'tile',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '© OpenStreetMap contributors & CARTO',
+  },
 };
 
 // 🎮 DEFAULTS
@@ -62,44 +60,44 @@ const stationIcon = L.divIcon({
 
 // 🛠️ BASEMAP COMPONENT
 export function BaseMap({ style }) {
-    const map = useMap();
-    const layerRef = useRef(null);
+  const map = useMap();
+  const layerRef = useRef(null);
 
-    useEffect(() => {
-        const cleanup = () => {
-            if (layerRef.current) {
-                try {
-                    if (map.hasLayer(layerRef.current)) {
-                        map.removeLayer(layerRef.current);
-                    }
-                } catch (error) {
-                    console.warn("Suppressed Esri layer cleanup error:", error);
-                }
-                layerRef.current = null;
-            }
-        };
-
-        cleanup();
-
+  useEffect(() => {
+    const cleanup = () => {
+      if (layerRef.current) {
         try {
-            const config = BASE_LAYERS[style];
-            const layer = vectorBasemapLayer(config.id, {
-                apikey: API_KEY,
-                token: API_KEY
-            });
-
-            if (layer) {
-                layer.addTo(map);
-                layerRef.current = layer;
-            }
-        } catch (err) {
-            console.error("Esri Basemap Init Error:", err);
+          if (map.hasLayer(layerRef.current)) {
+            map.removeLayer(layerRef.current);
+          }
+        } catch (error) {
+          console.warn("Suppressed layer cleanup error:", error);
         }
+        layerRef.current = null;
+      }
+    };
 
-        return cleanup;
-    }, [map, style]);
+    cleanup();
 
-    return null; 
+    try {
+      const config = BASE_LAYERS[style] ?? BASE_LAYERS.GREY;
+      const layer = L.tileLayer(config.url, {
+        attribution: config.attribution,
+        maxZoom: 19,
+      });
+
+      if (layer) {
+        layer.addTo(map);
+        layerRef.current = layer;
+      }
+    } catch (err) {
+      console.error("Base map init error:", err);
+    }
+
+    return cleanup;
+  }, [map, style]);
+
+  return null;
 }
 
 // 🏗️ COQUITLAM ROADS/PARCELS
