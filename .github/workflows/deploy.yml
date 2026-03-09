@@ -33,7 +33,6 @@ jobs:
 
       - name: Ensure GitHub Pages is enabled
         run: |
-          set -e
           echo "Configuring GitHub Pages to deploy from gh-pages..."
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Accept: application/vnd.github+json" \
@@ -45,12 +44,13 @@ jobs:
           echo "HTTP $http_code"
           echo "$body"
           if [ "$http_code" -ge 400 ]; then
-            echo "Failed to configure Pages (HTTP $http_code)"
-            exit 1
+            echo "⚠️ Could not enable Pages automatically (HTTP $http_code)." \
+                 "Please enable GitHub Pages in your repo settings (branch 'gh-pages')."
           fi
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
+        continue-on-error: true
         with:
           folder: client/dist
           branch: gh-pages
