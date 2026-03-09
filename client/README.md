@@ -14,3 +14,25 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Deploy to GitHub Pages
+
+This project is configured to deploy the built `dist` folder to GitHub Pages using the `gh-pages` package. The Vite `base` is already set to `/coquitlam-fire-trainer/` in `vite.config.js`.
+
+Steps to deploy:
+
+1. From the `client` folder, install the new dev dependency:
+
+```bash
+npm install --save-dev gh-pages
+```
+
+2. Build and deploy:
+
+```bash
+npm run deploy
+```
+
+This will run `npm run build` then publish `dist` to the `gh-pages` branch.
+
+If your repository name is different, update `base` in `vite.config.js` accordingly.
