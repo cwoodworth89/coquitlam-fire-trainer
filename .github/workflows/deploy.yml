@@ -31,12 +31,15 @@ jobs:
         run: npm run build
         working-directory: ./client
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v3
-        with:
-          source: branch
-          branch: gh-pages
-          path: /
+      - name: Ensure GitHub Pages is enabled
+        run: |
+          set -e
+          echo "Configuring GitHub Pages to deploy from gh-pages..."
+          curl -s -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pages \
+            -d '{"source":{"branch":"gh-pages","path":"/"}}' || true
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
