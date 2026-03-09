@@ -1,24 +1,20 @@
 import React, { useEffect, useRef } from 'react';
 import { Marker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-
-// Import Esri libraries
-import { vectorBasemapLayer } from 'esri-leaflet-vector';
 import { dynamicMapLayer } from 'esri-leaflet';
 
-// ≡ƒöæ API KEY
-const API_KEY = "AAPTxy8BH1VEsoebNVZXo8HurAtUqBEibvXQ49H44V9cLFsdZhqOdxezMGzrZ2QiYfHHlb9zkcacxXvSeuIsHOvLLbUB_MFqDvT-evdF8PKDKmuIayqymwswn09IzC3tH_aL0s9G-CZSWBAaOS2tOZdHdLNA0L34rW0z4wZBQVpKrYKWKYNr4AltUWCw28T5qZB2E7so0ek3jRLAEKbqPgXmr844piY3S6xgI-2oBoj9rBM19tqk-YakklhymszucwtRAT1_ZmlRyAzl";
-
-// ≡ƒù║∩╕Å CONFIGURATION
+// 🗺️ BASE LAYERS (Free tile servers; no API key required)
 export const BASE_LAYERS = {
-    GREY: {
-        type: "esri-custom",
-        id: "38786e137dea4eb5a240ef85cb1390a2"
-    },
-    DARK: {
-        type: "esri-enum",
-        id: "arcgis/dark-gray"
-    }
+  GREY: {
+    type: 'tile',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors',
+  },
+  DARK: {
+    type: 'tile',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '© OpenStreetMap contributors & CARTO',
+  },
 };
 
 // 🎮 DEFAULTS
