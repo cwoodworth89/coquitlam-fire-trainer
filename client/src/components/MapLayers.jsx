@@ -3,17 +3,25 @@ import { Marker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { dynamicMapLayer } from 'esri-leaflet';
 
-// 🗺️ BASE LAYERS (Free tile servers; no API key required)
+// 🗺️ BASE LAYERS (No-label basemaps)
+// Using Carto's 'nolabels' tiles so we don't show any road/place labels.
+// These are free/public and do not require an API key.
 export const BASE_LAYERS = {
   GREY: {
     type: 'tile',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© OpenStreetMap contributors',
+    url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+    attribution: '© OpenStreetMap contributors & Carto',
+    subdomains: ['a', 'b', 'c', 'd'],
+    maxNativeZoom: 19,
+    maxZoom: 22,
   },
   DARK: {
     type: 'tile',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '© OpenStreetMap contributors & CARTO',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    attribution: '© OpenStreetMap contributors & Carto',
+    subdomains: ['a', 'b', 'c', 'd'],
+    maxNativeZoom: 19,
+    maxZoom: 22,
   },
 };
 
@@ -69,7 +77,7 @@ export function BaseMap({ style }) {
                         map.removeLayer(layerRef.current);
                     }
                 } catch (error) {
-                    console.warn("Suppressed Esri layer cleanup error:", error);
+                    console.warn("Suppressed base layer cleanup error:", error);
                 }
                 layerRef.current = null;
             }
@@ -77,19 +85,24 @@ export function BaseMap({ style }) {
 
         cleanup();
 
-        try {
-            const config = BASE_LAYERS[style];
-            const layer = vectorBasemapLayer(config.id, {
-                apikey: API_KEY,
-                token: API_KEY
-            });
+        const config = BASE_LAYERS[style];
+        if (!config) {
+            console.warn(`Unknown base layer style: ${style}`);
+            return;
+        }
 
-            if (layer) {
-                layer.addTo(map);
-                layerRef.current = layer;
-            }
-        } catch (err) {
-            console.error("Esri Basemap Init Error:", err);
+        if (config.type === 'tile') {
+            const tileLayer = L.tileLayer(config.url, {
+                attribution: config.attribution,
+                subdomains: config.subdomains,
+                maxNativeZoom: config.maxNativeZoom ?? 19,
+                maxZoom: config.maxZoom ?? 22,
+                noWrap: true,
+            });
+            tileLayer.addTo(map);
+            layerRef.current = tileLayer;
+        } else {
+            console.warn('Unsupported base layer type:', config.type);
         }
 
         return cleanup;
